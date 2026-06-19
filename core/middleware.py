@@ -1,7 +1,5 @@
 import threading
-
 from django.conf import settings
-
 
 class MetricsMiddleware:
     _lock = threading.Lock()
@@ -16,28 +14,25 @@ class MetricsMiddleware:
 
     def __call__(self, request):
         response = self.get_response(request)
-        self._record(response.status_code)
-        return response
-
-    def _record(self, status_code):
-        cls = type(self)
-        with cls._lock:
-            cls.total += 1
-            if 200 <= status_code < 300:
-                cls.count_2xx += 1
-            elif 400 <= status_code < 500:
-                cls.count_4xx += 1
-            elif 500 <= status_code < 600:
-                cls.count_5xx += 1
-            line = (
-                f"[METRICS] total={cls.total} "
-                f"2xx={cls.count_2xx} 4xx={cls.count_4xx} 5xx={cls.count_5xx}"
-            )
-
+        status = response.status_code
+        
+        with self._lock:
+            MetricsMiddleware.total += 1
+            if 200 <= status < 300:
+                MetricsMiddleware.count_2xx += 1
+            elif 400 <= status < 500:
+                MetricsMiddleware.count_4xx += 1
+            elif 500 <= status < 600:
+                MetricsMiddleware.count_5xx += 1
+                
+            line = f"[metrics] total={MetricsMiddleware.total} 2xx={MetricsMiddleware.count_2xx} 4xx={MetricsMiddleware.count_4xx} 5xx={MetricsMiddleware.count_5xx}"
+            
         print(line)
         if self.log_file:
             try:
                 with open(self.log_file, "a", encoding="utf-8") as f:
                     f.write(line + "\n")
-            except OSError:
+            except Exception:
                 pass
+                
+        return response
