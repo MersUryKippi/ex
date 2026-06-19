@@ -5,20 +5,19 @@ from django.shortcuts import get_object_or_404, redirect, render
 from .models import Item as Model
 from .forms import ItemForm as ModelForm
 
-
 def ping_view(request):
-    return HttpResponse("pong", status=200, content_type="text/plain")
-
+    return HttpResponse("pong", content_type="text/plain", status=200)
 
 def list_view(request):
-    fields = Model._meta.fields
-    headers = [f.verbose_name for f in fields]
-    rows = [
-        {"pk": obj.pk, "values": [getattr(obj, f.name) for f in fields]}
-        for obj in Model.objects.all()
-    ]
-    return render(request, "core/index.html", {"headers": headers, "rows": rows})
-
+    all_fields = Model._meta.fields
+    headers = [field.verbose_name for field in all_fields]
+    
+    records = []
+    for item in Model.objects.all():
+        row_values = [getattr(item, field.name) for field in all_fields]
+        records.append({"pk": item.pk, "values": row_values})
+        
+    return render(request, "core/index.html", {"headers": headers, "rows": records})
 
 def create_view(request):
     if request.method == "POST":
@@ -29,26 +28,27 @@ def create_view(request):
             return redirect("index")
         messages.error(request, "Исправьте ошибки в форме.")
         return render(request, "core/form.html", {"form": form}, status=400)
+    
     return render(request, "core/form.html", {"form": ModelForm()})
 
-
 def update_view(request, pk):
-    obj = get_object_or_404(Model, pk=pk)
+    instance = get_object_or_404(Model, pk=pk)
     if request.method == "POST":
-        form = ModelForm(request.POST, instance=obj)
+        form = ModelForm(request.POST, instance=instance)
         if form.is_valid():
             form.save()
             messages.success(request, "Запись успешно обновлена.")
             return redirect("index")
         messages.error(request, "Исправьте ошибки в форме.")
-        return render(request, "core/form.html", {"form": form, "object": obj}, status=400)
-    return render(request, "core/form.html", {"form": ModelForm(instance=obj), "object": obj})
-
+        return render(request, "core/form.html", {"form": form, "object": instance}, status=400)
+        
+    return render(request, "core/form.html", {"form": ModelForm(instance=instance), "object": instance})
 
 def delete_view(request, pk):
-    obj = get_object_or_404(Model, pk=pk)
+    instance = get_object_or_404(Model, pk=pk)
     if request.method == "POST":
-        obj.delete()
-        messages.success(request, "Запись удалена.")
+        instance.delete()
+        messages.success(request, "Запись успешно удалена.")
         return redirect("index")
-    return render(request, "core/confirm_delete.html", {"object": obj})
+        
+    return render(request, "core/confirm_delete.html", {"object": instance})
